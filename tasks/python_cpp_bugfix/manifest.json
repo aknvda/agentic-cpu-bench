@@ -1,0 +1,16 @@
+{
+  "task_id": "python_cpp_bugfix",
+  "fixture_repo": "fixtures/bug_repo",
+  "prompt": "prompt.md",
+  "expected_patch": "expected.patch",
+  "timeout_seconds": 180,
+  "tags": ["python", "cpp", "pytest", "compile", "regex"],
+  "success_commands": [
+    {"name": "python-tests", "argv": ["uv", "run", "pytest", "-q"]},
+    {"name": "cpp-build", "argv": ["make", "build"]},
+    {"name": "cpp-tests", "argv": ["make", "test"]},
+    {"name": "lint", "argv": ["python", "-m", "compileall", "-q", "src", "tests"]},
+    {"name": "static-analysis", "argv": ["c++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-fsyntax-only", "cpp/calc.cpp"]}
+  ],
+  "allowed_commands": ["uv", "pytest", "python", "make", "c++", "sed", "rg", "cat", "ls"]
+}

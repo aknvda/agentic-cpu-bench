@@ -1,0 +1,42 @@
+FROM python:3.12-slim
+
+ARG CODEX_VERSION=0.136.0
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+      build-essential \
+      ca-certificates \
+      curl \
+      git \
+      make \
+      ripgrep \
+      tar \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir pytest uv
+
+RUN set -eux; \
+    arch="$(uname -m)"; \
+    case "$arch" in \
+      x86_64) codex_target="codex-x86_64-unknown-linux-musl" ;; \
+      aarch64|arm64) codex_target="codex-aarch64-unknown-linux-musl" ;; \
+      *) echo "unsupported architecture: $arch" >&2; exit 1 ;; \
+    esac; \
+    tmp_dir="$(mktemp -d)"; \
+    curl -fsSL "https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}/${codex_target}.tar.gz" \
+      -o "$tmp_dir/codex.tar.gz"; \
+    tar -xzf "$tmp_dir/codex.tar.gz" -C "$tmp_dir"; \
+    install -m 0755 "$tmp_dir/$codex_target" /usr/local/bin/codex; \
+    rm -rf "$tmp_dir"; \
+    codex --version
+
+WORKDIR /app
+
+COPY pyproject.toml README.md ./
+COPY src ./src
+COPY tasks ./tasks
+COPY fixtures ./fixtures
+
+RUN pip install --no-cache-dir .
+
+CMD ["agentic-cpu-bench", "--help"]
