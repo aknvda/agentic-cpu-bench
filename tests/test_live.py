@@ -66,6 +66,7 @@ print('{"type":"fake_codex_done"}')
         run_id="live-test",
         side="live",
         codex_binary=str(fake_codex),
+        sandbox="danger-full-access",
         timeout_seconds=30,
     )
 
@@ -74,6 +75,7 @@ print('{"type":"fake_codex_done"}')
     assert result.codex_stdout_path.read_text(encoding="utf-8").strip() == '{"type":"fake_codex_done"}'
     command_text = (tmp_path / "run" / "artifacts" / "codex.command.txt").read_text(encoding="utf-8")
     assert f"--cd {result.workspace.resolve()}" in command_text
+    assert "--sandbox danger-full-access" in command_text
     assert "extract_error_codes" in result.patch_path.read_text(encoding="utf-8")
     assert [command.name for command in result.commands] == [
         "codex-agent",

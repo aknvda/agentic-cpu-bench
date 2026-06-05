@@ -8,7 +8,7 @@ from typing import Any
 from .artifacts import summarize_run_root
 from .codex_agent import build_codex_command, build_live_prompt
 from .dashboard import write_dashboard
-from .k8s import grace_pod_spec, grace_replay_job_spec, x86_pod_spec, x86_replay_job_spec
+from .k8s import NAMESPACE, grace_pod_spec, grace_replay_job_spec, x86_pod_spec, x86_replay_job_spec
 from .k8s import grace_worker_job_spec, x86_worker_job_spec
 from .live import run_codex_live
 from .live_dashboard import serve_dashboard, watch_k8s_dashboard
@@ -60,6 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
             command_parser.add_argument("--side", default="live")
             command_parser.add_argument("--model")
             command_parser.add_argument("--codex-bin", default="codex")
+            command_parser.add_argument("--sandbox", default="workspace-write")
             command_parser.add_argument("--timeout-seconds", type=int)
         elif command == "dashboard":
             command_parser.add_argument("--run-root", default="tmp/cli-dashboard")
@@ -71,14 +72,19 @@ def build_parser() -> argparse.ArgumentParser:
             command_parser.add_argument("--from-artifacts", action="store_true")
         elif command == "k8s-smoke":
             command_parser.add_argument("--image", default="registry.k8s.io/pause:3.10")
+            command_parser.add_argument("--namespace", default=NAMESPACE)
         elif command == "k8s-replay-jobs":
             command_parser.add_argument("--image", required=True)
+            command_parser.add_argument("--namespace", default=NAMESPACE)
         elif command == "k8s-worker-jobs":
             command_parser.add_argument("--image", default="python:3.12-slim")
+            command_parser.add_argument("--namespace", default=NAMESPACE)
+            command_parser.add_argument("--cpu-request", default="1500m")
             command_parser.add_argument("--mode", choices=("replay", "live"), default="replay")
             command_parser.add_argument("--source-config-map", default="agentic-cpu-bench-source")
             command_parser.add_argument("--codex-secret")
             command_parser.add_argument("--model")
+            command_parser.add_argument("--codex-sandbox", default="danger-full-access")
             command_parser.add_argument("--codex-version", default="0.136.0")
             command_parser.add_argument("--image-pull-secret")
             command_parser.add_argument("--x86-node")
@@ -268,6 +274,7 @@ def main(argv: list[str] | None = None) -> int:
             side=side,
             model=args.model,
             codex_binary=args.codex_bin,
+            sandbox=args.sandbox,
             timeout_seconds=args.timeout_seconds,
         )
         print(
@@ -304,14 +311,14 @@ def main(argv: list[str] | None = None) -> int:
         print(output.parent / "results.json")
         return 0
     if args.command == "k8s-smoke":
-        print(x86_pod_spec("smoke-x86", args.image), end="")
+        print(x86_pod_spec("smoke-x86", args.image, namespace=args.namespace), end="")
         print("---")
-        print(grace_pod_spec("smoke-grace", args.image), end="")
+        print(grace_pod_spec("smoke-grace", args.image, namespace=args.namespace), end="")
         return 0
     if args.command == "k8s-replay-jobs":
-        print(x86_replay_job_spec("agentic-cpu-bench-replay-x86", args.image), end="")
+        print(x86_replay_job_spec("agentic-cpu-bench-replay-x86", args.image, namespace=args.namespace), end="")
         print("---")
-        print(grace_replay_job_spec("agentic-cpu-bench-replay-grace", args.image), end="")
+        print(grace_replay_job_spec("agentic-cpu-bench-replay-grace", args.image, namespace=args.namespace), end="")
         return 0
     if args.command == "k8s-worker-jobs":
         try:
@@ -323,8 +330,11 @@ def main(argv: list[str] | None = None) -> int:
                     source_config_map=args.source_config_map,
                     codex_secret=args.codex_secret,
                     model=args.model,
+                    codex_sandbox=args.codex_sandbox,
                     codex_version=args.codex_version,
                     image_pull_secret=args.image_pull_secret,
+                    namespace=args.namespace,
+                    cpu_request=args.cpu_request,
                     node_name=args.x86_node,
                     start_at_epoch=args.start_at_epoch,
                 ),
@@ -339,8 +349,11 @@ def main(argv: list[str] | None = None) -> int:
                     source_config_map=args.source_config_map,
                     codex_secret=args.codex_secret,
                     model=args.model,
+                    codex_sandbox=args.codex_sandbox,
                     codex_version=args.codex_version,
                     image_pull_secret=args.image_pull_secret,
+                    namespace=args.namespace,
+                    cpu_request=args.cpu_request,
                     node_name=args.grace_node,
                     start_at_epoch=args.start_at_epoch,
                 ),

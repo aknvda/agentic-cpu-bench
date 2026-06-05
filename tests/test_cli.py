@@ -83,8 +83,8 @@ def test_codex_live_prints_command_without_running_codex(capsys):
 def test_codex_run_invokes_live_runner(monkeypatch, capsys):
     calls = []
 
-    def fake_run_codex_live(task, run_dir: Path, run_id: str, side: str, model, codex_binary, timeout_seconds):
-        calls.append((str(run_dir), run_id, side, model, codex_binary, timeout_seconds))
+    def fake_run_codex_live(task, run_dir: Path, run_id: str, side: str, model, codex_binary, sandbox, timeout_seconds):
+        calls.append((str(run_dir), run_id, side, model, codex_binary, sandbox, timeout_seconds))
         return SimpleNamespace(
             ok=True,
             completion_ms=88.0,
@@ -117,7 +117,7 @@ def test_codex_run_invokes_live_runner(monkeypatch, capsys):
         == 0
     )
 
-    assert calls == [("tmp/live", "r1", "grace", "gpt-5", "/tmp/fake-codex", 10)]
+    assert calls == [("tmp/live", "r1", "grace", "gpt-5", "/tmp/fake-codex", "workspace-write", 10)]
     out = capsys.readouterr().out
     assert "ok=True" in out
     assert "codex_stdout=tmp/live/artifacts/codex.stdout.jsonl" in out

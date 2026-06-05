@@ -67,7 +67,7 @@ def test_replay_jobs_run_cpu_bench_workload_on_validated_pools():
 def test_cluster_replay_script_requires_image_and_collects_artifacts():
     script = Path("scripts/cluster_replay.sh").read_text()
     assert 'Set IMAGE to a multi-arch agentic-cpu-bench image' in script
-    assert "uv run agentic-cpu-bench k8s-replay-jobs --image" in script
+    assert "uv run agentic-cpu-bench k8s-replay-jobs --namespace \"$NS\" --image" in script
     assert "kubectl wait -n \"$NS\" --for=condition=Complete job/agentic-cpu-bench-replay-x86" in script
     assert "kubectl cp \"$NS/$pod:/app/tmp/cluster/$side/artifacts\" \"$OUT/$side/artifacts\"" in script
     assert "uv run agentic-cpu-bench dashboard --from-artifacts" in script
@@ -89,8 +89,10 @@ def test_worker_jobs_ship_source_configmap_and_run_inside_namespace():
 
     assert "namespace: agentic-cpu-bench-demo" in x86
     assert "app: agentic-cpu-bench-worker" in x86
+    assert "automountServiceAccountToken: false" in x86
     assert "name: agentic-cpu-bench-source" in x86
     assert "tar -xzf /input/source.tgz -C /work" in x86
+    assert "bubblewrap" in x86
     assert "export AGENTIC_GAUNTLET_STREAM_EVENTS=1" in x86
     assert "agentic-cpu-bench replay --run-dir tmp/k8s-demo/x86 --run-id k8s-replay-x86 --side x86" in x86
     assert "replay_run_exit_code=$run_status" in x86
@@ -99,6 +101,39 @@ def test_worker_jobs_ship_source_configmap_and_run_inside_namespace():
 
     assert "agentic-cpu-bench replay --run-dir tmp/k8s-demo/grace --run-id k8s-replay-grace --side grace" in grace
     assert "cloud.google.com/gke-nodepool: customer-gpu-w0e" in grace
+
+
+def test_worker_jobs_accept_explicit_namespace():
+    x86 = x86_worker_job_spec(
+        "agentic-cpu-bench-worker-x86",
+        image="python:3.12-slim",
+        mode="replay",
+        source_config_map="agentic-cpu-bench-source",
+        namespace="anikkulkarni-agentic-demo",
+    )
+    grace = grace_worker_job_spec(
+        "agentic-cpu-bench-worker-grace",
+        image="python:3.12-slim",
+        mode="replay",
+        source_config_map="agentic-cpu-bench-source",
+        namespace="anikkulkarni-agentic-demo",
+    )
+
+    assert "namespace: anikkulkarni-agentic-demo" in x86
+    assert "namespace: anikkulkarni-agentic-demo" in grace
+
+
+def test_worker_jobs_use_configurable_cpu_request_with_fixed_limit():
+    spec = x86_worker_job_spec(
+        "agentic-cpu-bench-worker-x86",
+        image="python:3.12-slim",
+        mode="replay",
+        source_config_map="agentic-cpu-bench-source",
+        cpu_request="1500m",
+    )
+
+    assert 'cpu: "1500m"' in spec
+    assert 'cpu: "4"' in spec
 
 
 def test_live_worker_jobs_require_codex_secret_and_mount_codex_home():
@@ -121,6 +156,7 @@ def test_live_worker_jobs_require_codex_secret_and_mount_codex_home():
     )
 
     assert "agentic-cpu-bench codex-run --run-dir tmp/k8s-demo/x86 --run-id k8s-live-x86 --side x86 --model gpt-5" in spec
+    assert "--sandbox danger-full-access" in spec
     assert "imagePullSecrets:" in spec
     assert "name: registry-pull-secret" in spec
     assert "name: CODEX_HOME" in spec
@@ -141,12 +177,15 @@ def test_k8s_demo_replay_script_runs_worker_jobs_and_collects_artifacts():
     assert "kubectl create configmap \"$SOURCE_CM\"" in script
     assert 'PYTHON_BIN="${PYTHON_BIN:-python3}"' in script
     assert 'KEEP_DASHBOARD="${KEEP_DASHBOARD:-1}"' in script
+    assert 'WORKER_CPU_REQUEST="${WORKER_CPU_REQUEST:-1500m}"' in script
     assert "dashboard_port_open" in script
     assert "start_dashboard" in script
     assert "live_dashboard=http://$LIVE_DASHBOARD_HOST:$LIVE_DASHBOARD_PORT/" in script
     assert "uv run agentic-cpu-bench watch-k8s-dashboard" in script
     assert "uv run agentic-cpu-bench serve-dashboard" in script
     assert "uv run agentic-cpu-bench k8s-worker-jobs" in script
+    assert "--namespace \"$NS\"" in script
+    assert "--cpu-request \"$WORKER_CPU_REQUEST\"" in script
     assert script.index("start_dashboard") < script.index("uv run agentic-cpu-bench k8s-worker-jobs")
     assert "kubectl wait -n \"$NS\" --for=condition=Complete job/agentic-cpu-bench-worker-x86" in script
     assert "wait \"$WATCH_PID\"" in script
@@ -164,8 +203,13 @@ def test_k8s_demo_live_script_uses_model_and_codex_secret():
     script = Path("scripts/k8s_demo_live.sh").read_text()
     assert "nvcr.io/your-org/your-team/agentic-cpu-bench-codex-worker:latest" in script
     assert 'MODEL="${MODEL:-}"' in script
+    assert 'CODEX_SANDBOX="${CODEX_SANDBOX:-danger-full-access}"' in script
     assert 'IMAGE_PULL_SECRET="${IMAGE_PULL_SECRET:-registry-pull-secret}"' in script
+    assert 'WORKER_CPU_REQUEST="${WORKER_CPU_REQUEST:-1500m}"' in script
     assert "--codex-secret \"$CODEX_SECRET\"" in script
+    assert "--codex-sandbox \"$CODEX_SANDBOX\"" in script
+    assert "--namespace \"$NS\"" in script
+    assert "--cpu-request \"$WORKER_CPU_REQUEST\"" in script
     assert "worker_args+=(--model \"$MODEL\")" in script
     assert "--image-pull-secret \"$IMAGE_PULL_SECRET\"" in script
     assert "uv run agentic-cpu-bench watch-k8s-dashboard" in script

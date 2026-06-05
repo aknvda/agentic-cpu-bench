@@ -18,6 +18,7 @@ DASHBOARD="${DASHBOARD:-tmp/agentic-cpu-bench/k8s-dashboard.html}"
 REPORT="${REPORT:-tmp/agentic-cpu-bench/k8s-report.md}"
 TIMEOUT="${TIMEOUT:-900s}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+WORKER_CPU_REQUEST="${WORKER_CPU_REQUEST:-1500m}"
 LIVE_DASHBOARD_STATE="${LIVE_DASHBOARD_STATE:-tmp/agentic-cpu-bench/k8s-live-state.json}"
 LIVE_DASHBOARD_HOST="${LIVE_DASHBOARD_HOST:-127.0.0.1}"
 LIVE_DASHBOARD_PORT="${LIVE_DASHBOARD_PORT:-8765}"
@@ -139,6 +140,8 @@ start_dashboard
 
 worker_args=(
   uv run agentic-cpu-bench k8s-worker-jobs
+  --namespace "$NS" \
+  --cpu-request "$WORKER_CPU_REQUEST" \
   --mode replay \
   --image "$IMAGE" \
   --source-config-map "$SOURCE_CM"

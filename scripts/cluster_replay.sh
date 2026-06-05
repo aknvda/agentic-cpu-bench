@@ -33,7 +33,7 @@ copy_side() {
 kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f -
 cleanup_jobs
 
-uv run agentic-cpu-bench k8s-replay-jobs --image "$IMAGE" | kubectl apply -f -
+uv run agentic-cpu-bench k8s-replay-jobs --namespace "$NS" --image "$IMAGE" | kubectl apply -f -
 
 kubectl wait -n "$NS" --for=condition=Complete job/agentic-cpu-bench-replay-x86 --timeout="$TIMEOUT"
 kubectl wait -n "$NS" --for=condition=Complete job/agentic-cpu-bench-replay-grace --timeout="$TIMEOUT"

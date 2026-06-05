@@ -73,6 +73,7 @@ def run_codex_live(
     side: str,
     model: str | None = None,
     codex_binary: str = "codex",
+    sandbox: str = "workspace-write",
     timeout_seconds: int | None = None,
 ) -> LiveResult:
     workspace = create_workspace(task, run_dir / "workspace")
@@ -88,7 +89,13 @@ def run_codex_live(
             path.unlink()
 
     prompt = build_live_prompt(task)
-    command = build_codex_command(workspace.resolve(), prompt, model=model, codex_binary=codex_binary)
+    command = build_codex_command(
+        workspace.resolve(),
+        prompt,
+        model=model,
+        codex_binary=codex_binary,
+        sandbox=sandbox,
+    )
     command_path.write_text(shlex.join(command) + "\n", encoding="utf-8")
 
     events = EventWriter(events_path)

@@ -38,6 +38,12 @@ def test_build_codex_command_places_model_after_exec():
     ]
 
 
+def test_build_codex_command_allows_sandbox_override():
+    cmd = build_codex_command(Path("/tmp/work"), "fix it", sandbox="danger-full-access")
+    assert "--sandbox" in cmd
+    assert cmd[cmd.index("--sandbox") + 1] == "danger-full-access"
+
+
 def test_build_codex_command_allows_codex_binary_override():
     cmd = build_codex_command(Path("/tmp/work"), "fix it", codex_binary="/tmp/fake-codex")
     assert cmd[0] == "/tmp/fake-codex"

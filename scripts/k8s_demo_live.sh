@@ -9,6 +9,7 @@ IMAGE="${IMAGE:-nvcr.io/your-org/your-team/agentic-cpu-bench-codex-worker:latest
 CODEX_SECRET="${CODEX_SECRET:?Set CODEX_SECRET to a Kubernetes Secret containing Codex auth/config files.}"
 IMAGE_PULL_SECRET="${IMAGE_PULL_SECRET:-registry-pull-secret}"
 MODEL="${MODEL:-}"
+CODEX_SANDBOX="${CODEX_SANDBOX:-danger-full-access}"
 CODEX_VERSION="${CODEX_VERSION:-0.136.0}"
 FAIR_START="${FAIR_START:-1}"
 SYNC_START_DELAY_SECONDS="${SYNC_START_DELAY_SECONDS:-90}"
@@ -21,6 +22,7 @@ DASHBOARD="${DASHBOARD:-tmp/agentic-cpu-bench/k8s-live-dashboard.html}"
 REPORT="${REPORT:-tmp/agentic-cpu-bench/k8s-live-report.md}"
 TIMEOUT="${TIMEOUT:-1200s}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+WORKER_CPU_REQUEST="${WORKER_CPU_REQUEST:-1500m}"
 LIVE_DASHBOARD_STATE="${LIVE_DASHBOARD_STATE:-tmp/agentic-cpu-bench/k8s-live-state.json}"
 LIVE_DASHBOARD_HOST="${LIVE_DASHBOARD_HOST:-127.0.0.1}"
 LIVE_DASHBOARD_PORT="${LIVE_DASHBOARD_PORT:-8765}"
@@ -142,10 +144,13 @@ start_dashboard
 
 worker_args=(
   uv run agentic-cpu-bench k8s-worker-jobs
+  --namespace "$NS" \
+  --cpu-request "$WORKER_CPU_REQUEST" \
   --mode live \
   --image "$IMAGE" \
   --source-config-map "$SOURCE_CM" \
   --codex-secret "$CODEX_SECRET" \
+  --codex-sandbox "$CODEX_SANDBOX" \
   --codex-version "$CODEX_VERSION" \
   --image-pull-secret "$IMAGE_PULL_SECRET"
 )

@@ -24,6 +24,7 @@ def build_codex_command(
     prompt: str,
     model: str | None = None,
     codex_binary: str = "codex",
+    sandbox: str = "workspace-write",
 ) -> list[str]:
     command = [
         codex_binary,
@@ -39,7 +40,7 @@ def build_codex_command(
             "--cd",
             str(workspace),
             "--sandbox",
-            "workspace-write",
+            sandbox,
             prompt,
         ]
     )

@@ -6,20 +6,22 @@ import shlex
 NAMESPACE = "agentic-cpu-bench-demo"
 
 
-def x86_pod_spec(name: str, image: str) -> str:
+def x86_pod_spec(name: str, image: str, *, namespace: str = NAMESPACE) -> str:
     return _pod_spec(
         name=name,
         image=image,
+        namespace=namespace,
         arch="amd64",
         instance_type="n2d-standard-8",
         node_pool="customer-cpu",
     )
 
 
-def grace_pod_spec(name: str, image: str) -> str:
+def grace_pod_spec(name: str, image: str, *, namespace: str = NAMESPACE) -> str:
     return _pod_spec(
         name=name,
         image=image,
+        namespace=namespace,
         arch="arm64",
         instance_type="a4x-highgpu-4g",
         node_pool="customer-gpu-w0e",
@@ -27,10 +29,11 @@ def grace_pod_spec(name: str, image: str) -> str:
     )
 
 
-def x86_replay_job_spec(name: str, image: str) -> str:
+def x86_replay_job_spec(name: str, image: str, *, namespace: str = NAMESPACE) -> str:
     return _replay_job_spec(
         name=name,
         image=image,
+        namespace=namespace,
         side="x86",
         arch="amd64",
         instance_type="n2d-standard-8",
@@ -38,10 +41,11 @@ def x86_replay_job_spec(name: str, image: str) -> str:
     )
 
 
-def grace_replay_job_spec(name: str, image: str) -> str:
+def grace_replay_job_spec(name: str, image: str, *, namespace: str = NAMESPACE) -> str:
     return _replay_job_spec(
         name=name,
         image=image,
+        namespace=namespace,
         side="grace",
         arch="arm64",
         instance_type="a4x-highgpu-4g",
@@ -58,8 +62,11 @@ def x86_worker_job_spec(
     source_config_map: str,
     codex_secret: str | None = None,
     model: str | None = None,
+    codex_sandbox: str = "danger-full-access",
     codex_version: str = "0.136.0",
     image_pull_secret: str | None = None,
+    namespace: str = NAMESPACE,
+    cpu_request: str = "1500m",
     node_name: str | None = None,
     start_at_epoch: float | None = None,
 ) -> str:
@@ -71,9 +78,12 @@ def x86_worker_job_spec(
         instance_type="n2d-standard-8",
         node_pool="customer-cpu",
         mode=mode,
+        namespace=namespace,
+        cpu_request=cpu_request,
         source_config_map=source_config_map,
         codex_secret=codex_secret,
         model=model,
+        codex_sandbox=codex_sandbox,
         codex_version=codex_version,
         image_pull_secret=image_pull_secret,
         node_name=node_name,
@@ -89,8 +99,11 @@ def grace_worker_job_spec(
     source_config_map: str,
     codex_secret: str | None = None,
     model: str | None = None,
+    codex_sandbox: str = "danger-full-access",
     codex_version: str = "0.136.0",
     image_pull_secret: str | None = None,
+    namespace: str = NAMESPACE,
+    cpu_request: str = "1500m",
     node_name: str | None = None,
     start_at_epoch: float | None = None,
 ) -> str:
@@ -103,9 +116,12 @@ def grace_worker_job_spec(
         node_pool="customer-gpu-w0e",
         include_arch_toleration=True,
         mode=mode,
+        namespace=namespace,
+        cpu_request=cpu_request,
         source_config_map=source_config_map,
         codex_secret=codex_secret,
         model=model,
+        codex_sandbox=codex_sandbox,
         codex_version=codex_version,
         image_pull_secret=image_pull_secret,
         node_name=node_name,
@@ -117,6 +133,7 @@ def _pod_spec(
     *,
     name: str,
     image: str,
+    namespace: str,
     arch: str,
     instance_type: str,
     node_pool: str,
@@ -127,7 +144,7 @@ def _pod_spec(
         "kind: Pod",
         "metadata:",
         f"  name: {name}",
-        f"  namespace: {NAMESPACE}",
+        f"  namespace: {namespace}",
         "  labels:",
         "    app: agentic-cpu-bench-smoke",
         "spec:",
@@ -187,6 +204,7 @@ def _replay_job_spec(
     *,
     name: str,
     image: str,
+    namespace: str,
     side: str,
     arch: str,
     instance_type: str,
@@ -204,7 +222,7 @@ def _replay_job_spec(
         "kind: Job",
         "metadata:",
         f"  name: {name}",
-        f"  namespace: {NAMESPACE}",
+        f"  namespace: {namespace}",
         "  labels:",
         "    app: agentic-cpu-bench-replay",
         f"    side: {side}",
@@ -293,6 +311,7 @@ def _worker_script(
     side: str,
     mode: str,
     model: str | None,
+    codex_sandbox: str,
     codex_version: str,
     start_at_epoch: float | None,
 ) -> str:
@@ -308,7 +327,7 @@ def _worker_script(
         "export DEBIAN_FRONTEND=noninteractive\n"
         "export AGENTIC_GAUNTLET_STREAM_EVENTS=1\n"
         "apt-get update\n"
-        "apt-get install -y --no-install-recommends build-essential ca-certificates curl git make ripgrep tar\n"
+        "apt-get install -y --no-install-recommends build-essential bubblewrap ca-certificates curl git make ripgrep tar\n"
         "python -m pip install --no-cache-dir pytest uv\n"
         "mkdir -p /work\n"
         "tar -xzf /input/source.tgz -C /work\n"
@@ -332,7 +351,8 @@ def _worker_script(
         model_args = f" --model {shlex.quote(model)}" if model else ""
         live_command = (
             f"agentic-cpu-bench codex-run --run-dir {run_dir} "
-            f"--run-id k8s-live-{side} --side {side}{model_args}\n"
+            f"--run-id k8s-live-{side} --side {side}{model_args} "
+            f"--sandbox {shlex.quote(codex_sandbox)}\n"
         )
         return (
             common
@@ -368,9 +388,12 @@ def _worker_job_spec(
     instance_type: str,
     node_pool: str,
     mode: str,
+    namespace: str,
+    cpu_request: str,
     source_config_map: str,
     codex_secret: str | None = None,
     model: str | None = None,
+    codex_sandbox: str = "danger-full-access",
     codex_version: str = "0.136.0",
     image_pull_secret: str | None = None,
     node_name: str | None = None,
@@ -387,7 +410,7 @@ def _worker_job_spec(
         "kind: Job",
         "metadata:",
         f"  name: {name}",
-        f"  namespace: {NAMESPACE}",
+        f"  namespace: {namespace}",
         "  labels:",
         "    app: agentic-cpu-bench-worker",
         f"    mode: {mode}",
@@ -403,6 +426,7 @@ def _worker_job_spec(
         f"        side: {side}",
         "    spec:",
         "      restartPolicy: Never",
+        "      automountServiceAccountToken: false",
     ]
     if image_pull_secret:
         lines.extend(
@@ -431,7 +455,9 @@ def _worker_job_spec(
     )
     lines.extend(
         f"              {line}"
-        for line in _worker_script(side, mode, model, codex_version, start_at_epoch).rstrip().splitlines()
+        for line in _worker_script(side, mode, model, codex_sandbox, codex_version, start_at_epoch)
+        .rstrip()
+        .splitlines()
     )
     if mode == "live":
         lines.extend(
@@ -461,7 +487,7 @@ def _worker_job_spec(
         [
             "          resources:",
             "            requests:",
-            "              cpu: \"2\"",
+            f"              cpu: \"{cpu_request}\"",
             "              memory: 2Gi",
             "            limits:",
             "              cpu: \"4\"",
